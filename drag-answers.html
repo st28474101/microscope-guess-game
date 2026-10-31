@@ -16,7 +16,6 @@ let files=[],picked=-1,working=false,existing={};
 const classes=[...new Set(PHOTOS.map(p=>p.class||p.seat.slice(0,3)))].sort();
 classes.forEach(c=>$('cls').add(new Option(c+' 班',c)));
 function scoped(){return PHOTOS.filter(p=>(p.class||p.seat.slice(0,3))===$('cls').value)}
-function escapeHtml(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;':'&quot;',"'":'&#39;'}[c]))}
 function msg(text,error=false){$('progress').textContent=text;$('progress').className=error?'error':'success'}
 function setPicked(i){picked=i;document.querySelectorAll('.source').forEach((x,n)=>x.classList.toggle('picked',n===i))}
 function assign(i,id){
