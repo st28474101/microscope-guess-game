@@ -1,0 +1,88 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>顯微鏡猜猜樂｜拖曳配對答案照片</title><link rel="stylesheet" href="style.css"><style>
+main{max-width:1400px}.panel{background:white;border:1px solid #dce4ed;border-radius:14px;padding:16px;margin:14px 0}.topbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.topbar input{max-width:240px}.pair-layout{display:grid;grid-template-columns:minmax(270px,1fr) minmax(380px,2fr);gap:16px}.queue,.questions{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px}.tile{border:2px solid #dbe3eb;border-radius:12px;padding:9px;background:#fff;min-width:0;position:relative}.tile img{height:135px;width:100%;object-fit:contain;background:#f3f5f9;border-radius:8px}.tile .meta{font-size:12px;overflow-wrap:anywhere;line-height:1.5}.source{cursor:grab}.source.picked{border-color:#116d95;background:#ebf7fc}.target{cursor:pointer}.target.over{border-color:#16a34a;background:#e9fbe9}.target.assigned{border-color:#16a34a}.target .paired{background:#e6f9ea;border-radius:6px;padding:5px;margin-top:6px;font-size:12px;overflow-wrap:anywhere}.drop-note{font-size:12px;color:#4c6379}.warning{color:#9f4d00;font-weight:600}.error{color:#b42318;font-weight:600}.success{color:#12683f;font-weight:600}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.actions button{min-height:42px}button:disabled{opacity:.55;cursor:not-allowed}.muted{color:#536477;font-size:13px}.tip{background:#f1f7fc;border-radius:10px;padding:11px}#manage[hidden],#auth[hidden]{display:none!important}@media(max-width:850px){.pair-layout{grid-template-columns:1fr}.queue,.questions{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}.tile img{height:110px}}
+</style></head><body><header><h1>🔬 顯微鏡猜猜樂｜拖曳配對答案照片</h1><p>不需更改檔名。左側答案拖到右側顯微鏡題目，核對後一次私密儲存。</p><a href="teacher.html" style="color:#fff">← 返回老師控制台</a></header>
+<main><section class="panel"><div class="topbar" id="auth"><input id="email" type="email" placeholder="教師登入電子郵件"><input id="password" type="password" placeholder="教師密碼"><button id="login">登入</button><button id="logout" class="alt" hidden>登出</button><span id="authStatus" class="muted">尚未登入</span></div></section>
+<section id="manage" hidden>
+<section class="panel"><div class="topbar"><label>班級 <select id="cls"></select></label><label>答案照片（可多選） <input type="file" id="files" accept="image/*" multiple></label><button class="alt" id="clear">清除本次選取</button></div><p class="tip">電腦：將左側答案照拖到右側題目。平板：先點一下左側答案，再點右側題目。題目若已有暫配的答案，請先取消配對。所有配對都在按下儲存前只存在這個頁面，尚未上傳或公開。</p><p id="summary" class="muted" aria-live="polite"></p></section>
+<div class="pair-layout"><section class="panel"><h2>① 答案照片 <span id="answerCount"></span></h2><div id="answers" class="queue"></div></section><section class="panel"><h2>② 顯微鏡題目 <span id="questionCount"></span></h2><div id="questions" class="questions"></div></section></div>
+<section class="panel"><div class="actions"><button id="save" disabled>確認配對，批次私密儲存</button><button id="unpair" class="alt">全部取消本次配對</button><span id="progress" aria-live="polite"></span></div><p class="muted">上傳不會公布答案。每個題目最多配對一張答案照片；若要替換原本已儲存的答案，會要求再次確認，並先撤下已公開的舊答案照片。文字答案不受影響。</p></section></section>
+</main>
+<script src="data.js?v=20261031b"></script><script src="firebase-config.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script>
+'use strict';
+firebase.initializeApp(window.FIREBASE_CONFIG);
+const db=firebase.database(),$=id=>document.getElementById(id),PHOTOS=window.PHOTOS;
+let files=[],picked=-1,working=false,existing={};
+const classes=[...new Set(PHOTOS.map(p=>p.class||p.seat.slice(0,3)))].sort();
+classes.forEach(c=>$('cls').add(new Option(c+' 班',c)));
+function scoped(){return PHOTOS.filter(p=>(p.class||p.seat.slice(0,3))===$('cls').value)}
+function escapeHtml(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;':'&quot;',"'":'&#39;'}[c]))}
+function msg(text,error=false){$('progress').textContent=text;$('progress').className=error?'error':'success'}
+function setPicked(i){picked=i;document.querySelectorAll('.source').forEach((x,n)=>x.classList.toggle('picked',n===i))}
+function assign(i,id){
+ if(working||i<0||!files[i])return;
+ if(files.some((f,j)=>j!==i&&f.id===id)){msg('該題目已配對其他答案照片，請先取消原配對。',true);return}
+ files[i].id=id;setPicked(i);render();msg('已配對 '+files[i].file.name+' → '+id+'（尚未儲存）');
+}
+function release(i){if(working)return;files[i].id='';render()}
+function render(){
+ const ans=$('answers'),qs=$('questions');ans.innerHTML='';qs.innerHTML='';
+ const map=new Map(files.filter(f=>f.id).map(f=>[f.id,f]));
+ files.forEach((f,i)=>{
+  const card=document.createElement('div');card.className='tile source'+(picked===i?' picked':'');card.draggable=!working;
+  const im=document.createElement('img');im.src=f.url;im.alt='答案照片 '+f.file.name;
+  const label=document.createElement('div');label.className='meta';label.textContent=f.file.name;
+  const note=document.createElement('div');note.className='meta';note.textContent=f.id?'✓ 已配對 '+f.id:'未配對；可拖曳或點選';
+  card.append(im,label,note);
+  if(f.id){const b=document.createElement('button');b.className='alt';b.textContent='取消配對';b.style.marginTop='6px';b.onclick=e=>{e.stopPropagation();release(i)};card.append(b)}
+  card.onclick=()=>{if(working)return;setPicked(i)};
+  card.ondragstart=e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';setPicked(i)};
+  ans.append(card);
+ });
+ scoped().forEach(p=>{
+  const card=document.createElement('div');card.className='tile target'+(map.has(p.id)?' assigned':'');
+  const im=document.createElement('img');im.src=p.src;im.alt='顯微鏡題目 '+p.id;im.loading='lazy';
+  const label=document.createElement('div');label.className='meta';label.textContent=p.id+'｜'+p.filename;
+  card.append(im,label);
+  const assigned=map.get(p.id);
+  if(assigned){const note=document.createElement('div');note.className='paired';note.textContent='✓ '+assigned.file.name;card.append(note)}
+  else{const note=document.createElement('div');note.className='drop-note';note.textContent='拖入答案照片／點選配對';card.append(note)}
+  if(existing[p.id]){const n=document.createElement('div');n.className='meta warning';n.textContent='Firebase 已存有答案照片';card.append(n)}
+  card.ondragover=e=>{e.preventDefault();card.classList.add('over')};
+  card.ondragleave=()=>card.classList.remove('over');
+  card.ondrop=e=>{e.preventDefault();card.classList.remove('over');const raw=e.dataTransfer.getData('text/plain');const i=Number(raw);if(raw!==''&&Number.isInteger(i))assign(i,p.id)};
+  card.onclick=()=>{if(picked>=0)assign(picked,p.id)};
+  qs.append(card);
+ });
+ const n=files.filter(f=>f.id).length,dup=files.some((f,i)=>f.id&&files.some((g,j)=>i!==j&&g.id===f.id));
+ $('summary').textContent='已選 '+files.length+' 張答案照｜已配對 '+n+' 張｜未配對 '+(files.length-n)+' 張。';
+ $('answerCount').textContent=files.length+' 張';$('questionCount').textContent=scoped().length+' 題';
+ $('save').disabled=working||!n||dup;
+}
+function compress(file){return new Promise((resolve,reject)=>{
+ const u=URL.createObjectURL(file),img=new Image();
+ img.onload=()=>{URL.revokeObjectURL(u);let size=Math.min(1,750/Math.max(img.naturalWidth,img.naturalHeight));let canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*size));canvas.height=Math.max(1,Math.round(img.naturalHeight*size));let ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);let data;
+ for(let k=0;k<16;k++){data=canvas.toDataURL('image/jpeg',Math.max(.42,.78-k*.035));if(data.length<=135000)break;let tmp=document.createElement('canvas');tmp.width=canvas.width;tmp.height=canvas.height;tmp.getContext('2d').drawImage(canvas,0,0);canvas.width=Math.max(1,Math.round(canvas.width*.9));canvas.height=Math.max(1,Math.round(canvas.height*.9));ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(tmp,0,0,canvas.width,canvas.height)}
+ if(data.length>135000)reject(new Error('照片壓縮失敗 '+file.name));else resolve(data)};
+ img.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('無法讀取照片 '+file.name))};img.src=u;
+ })}
+async function loadExisting(){if(!firebase.auth().currentUser)return;try{const s=await db.ref('private/answerImages').once('value');existing=s.val()||{};render()}catch(e){msg('無法檢查已存答案：'+e.message,true)}}
+$('files').onchange=e=>{if(working)return;files.forEach(f=>URL.revokeObjectURL(f.url));files=[...e.target.files].filter(f=>f.type.startsWith('image/')).map(file=>({file,url:URL.createObjectURL(file),id:''}));picked=-1;render();msg('已載入照片，請拖曳配對（尚未上傳）')};
+$('cls').onchange=()=>{if(working)return;files.forEach(f=>f.id='');picked=-1;render();msg('已切換班級，原暫存配對已清除。')};
+$('clear').onclick=()=>{if(working)return;files.forEach(f=>URL.revokeObjectURL(f.url));files=[];picked=-1;$('files').value='';render();msg('本次選取已清除')};
+$('unpair').onclick=()=>{if(working)return;files.forEach(f=>f.id='');picked=-1;render();msg('暫存配對已清除')};
+$('save').onclick=async()=>{
+ if(!firebase.auth().currentUser)return alert('請先登入');
+ const work=files.filter(f=>f.id);if(!work.length)return;
+ if(new Set(work.map(f=>f.id)).size!==work.length)return alert('發現同一題目重複配對');
+ const replacing=work.filter(f=>existing[f.id]).length;
+ if(!confirm('確定私密儲存 '+work.length+' 張答案照片？'+(replacing?'\n其中 '+replacing+' 題已存在答案照片，會覆蓋舊照片。':'')+'\n學生目前不會看到新答案。'))return;
+ working=true;render();let ok=0,failed=0;
+ for(const f of work){try{msg('上傳中 '+(ok+failed+1)+' / '+work.length+'：'+f.id);const data=await compress(f.file);await db.ref('live/answerImages/'+f.id).remove();await db.ref('private/answerImages/'+f.id).set(data);existing[f.id]=data;ok++;f.id=''}catch(e){failed++;msg('有 '+failed+' 張失敗，最近錯誤：'+e.message,true)}}
+ working=false;render();msg('批次私密儲存完成：成功 '+ok+' 張，失敗 '+failed+' 張'+(failed?'（失敗的配對仍保留）':'。'));
+};
+$('login').onclick=async()=>{try{await firebase.auth().signInWithEmailAndPassword($('email').value.trim(),$('password').value);$('password').value=''}catch(e){msg('登入失敗：'+e.message,true)}};
+$('logout').onclick=()=>firebase.auth().signOut();
+firebase.auth().onAuthStateChanged(user=>{$('manage').hidden=!user;$('login').hidden=!!user;$('logout').hidden=!user;$('authStatus').textContent=user?'已登入：'+user.email:'尚未登入';if(user)loadExisting();else{existing={};files.forEach(f=>URL.revokeObjectURL(f.url));files=[];picked=-1;}render()});
+render();
+</script></body></html>
