@@ -30,6 +30,13 @@
         "$id": {
           ".validate": "newData.hasChildren(['id','seat','class','src','filename']) && newData.child('id').val() === $id && newData.child('seat').isString() && newData.child('class').isString() && newData.child('src').isString() && newData.child('src').val().beginsWith('data:image/jpeg;base64,') && newData.child('src').val().length <= 150000 && newData.child('filename').isString()"
         }
+      },
+      "questionOverrides": {
+        ".read": true,
+        ".write": "auth != null && auth.token.email === 'st28474101@gmail.com'",
+        "$id": {
+          ".validate": "newData.isString() && newData.val().beginsWith('data:image/jpeg;base64,') && newData.val().length <= 150000"
+        }
       }
     },
     "private": {
