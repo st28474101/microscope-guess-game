@@ -2,7 +2,7 @@
 init();
 if(dbReady)firebase.database().ref('live/extraQuestions').on('value',snap=>{
 const extra=Object.values(snap.val()||{});
-window.PHOTOS.splice(0,window.PHOTOS.length,...window.PHOTOS.filter(p=>!p.dynamic),...extra.map(p=>({...p,dynamic:true})));window.PHOTOS.sort((a,b)=>a.seat.localeCompare(b.seat)||Number(a.id.split('_').pop())-Number(b.id.split('_').pop()));
+window.PHOTOS.splice(0,window.PHOTOS.length,...window.PHOTOS.filter(p=>!p.dynamic),...extra.map(p=>({...p,dynamic:true})));window.PHOTOS.sort((a,b)=>a.seat.localeCompare(b.seat)||Number(a.id.split('_').pop())-Number(b.id.split('_').pop()));window.PHOTOS.forEach(p=>{if(!p.originalSrc)p.originalSrc=p.src;p.src=(window.questionImageOverrides||{})[p.id]||p.originalSrc;});
 const cls=$('#classFilter')?.value,seat=$('#seat')?.value;
 classOptions();if(cls&&[...$('#classFilter').options].some(o=>o.value===cls))$('#classFilter').value=cls;
 seatOptions();if(seat&&[...$('#seat').options].some(o=>o.value===seat))$('#seat').value=seat;
@@ -61,7 +61,7 @@ if(dbReady){
 }
 
  firebase.database().ref('live/questionOverrides').on('value',snap=>{
- const overrides=snap.val()||{};
+ const overrides=snap.val()||{};window.questionImageOverrides=overrides;
  window.PHOTOS.forEach(p=>{if(!p.originalSrc)p.originalSrc=p.src;p.src=overrides[p.id]||p.originalSrc;});
  photoCards(false);if(window.afterCardsRendered)window.afterCardsRendered();
  },err=>console.warn('題目照片替換尚未啟用：'+err.message));
