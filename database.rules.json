@@ -16,6 +16,13 @@
         "$photoId": {
           ".validate": "newData.isString() && newData.val().beginsWith('data:image/jpeg;base64,') && newData.val().length <= 150000"
         }
+      },
+      "hiddenQuestions": {
+        ".read": true,
+        ".write": "auth != null && auth.token.email === 'st28474101@gmail.com'",
+        "$photoId": {
+          ".validate": "newData.isBoolean()"
+        }
       }
     },
     "private": {
