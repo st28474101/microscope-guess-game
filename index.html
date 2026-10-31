@@ -1,5 +1,14 @@
 <!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>顯微鏡猜猜樂｜學生版</title><link rel="stylesheet" href="style.css"><body data-mode="student"><header><h1>🔬 顯微鏡猜猜樂</h1><p>五班題目整合。觀察細節，猜猜照片裡的物品；答案與答案照片由老師控制公布。</p></header><main><div class="notice" id="offline">目前為照片預覽模式：尚未連接 Firebase，老師遠端公布答案功能未啟用。</div><div class="toolbar"><label>班級 <select id="classFilter"></select></label><label>座號 <select id="seat"></select></label><span id="count"></span><span id="status"></span></div><div id="cards" class="grid"></div><p class="small">學生可先自由猜測。切換班級或座號時，你輸入的猜測文字不會上傳，只留在本機。</p></main><dialog id="zoom"><button id="closeZoom">關閉</button><p><img id="zoomimg" alt="放大照片"></p></dialog><script src="data.js?v=20261031b"></script><script src="firebase-config.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script><script src="common.js?v=20261031c"></script><script>
 init();
+if(dbReady)firebase.database().ref('live/extraQuestions').on('value',snap=>{
+const extra=Object.values(snap.val()||{});
+window.PHOTOS.splice(0,window.PHOTOS.length,...window.PHOTOS.filter(p=>!p.dynamic),...extra.map(p=>({...p,dynamic:true})));
+const cls=$('#classFilter')?.value,seat=$('#seat')?.value;
+classOptions();if(cls&&[...$('#classFilter').options].some(o=>o.value===cls))$('#classFilter').value=cls;
+seatOptions();if(seat&&[...$('#seat').options].some(o=>o.value===seat))$('#seat').value=seat;
+photoCards(false);if(window.afterCardsRendered)window.afterCardsRendered();
+},error=>console.warn('新增題目尚未取得讀取權限：',error.message));
+
 const visible={};
 const photoVisible={};
 function render(){
