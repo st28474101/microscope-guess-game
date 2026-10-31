@@ -90,4 +90,10 @@ render();
  window.PHOTOS.splice(0,window.PHOTOS.length,...window.PHOTOS.filter(p=>!p.dynamic),...extra.map(p=>({...p,dynamic:true})));window.PHOTOS.sort((a,b)=>a.seat.localeCompare(b.seat)||Number(a.id.split('_').pop())-Number(b.id.split('_').pop()));
  render();
  },e=>console.warn('新題目未啟用',e.message));
+
+ firebase.database().ref('live/questionOverrides').on('value',snap=>{
+ const overrides=snap.val()||{};
+ window.PHOTOS.forEach(p=>{if(!p.originalSrc)p.originalSrc=p.src;p.src=overrides[p.id]||p.originalSrc;});
+ render();
+ },err=>console.warn('題目照片替換尚未啟用：'+err.message));
 </script></body></html>
