@@ -59,4 +59,10 @@ if(dbReady){
     render();
   },error=>{console.warn('答案照片讀取權限待設定',error.message)});
 }
+
+ firebase.database().ref('live/questionOverrides').on('value',snap=>{
+ const overrides=snap.val()||{};
+ window.PHOTOS.forEach(p=>{if(!p.originalSrc)p.originalSrc=p.src;p.src=overrides[p.id]||p.originalSrc;});
+ photoCards(false);if(window.afterCardsRendered)window.afterCardsRendered();
+ },err=>console.warn('題目照片替換尚未啟用：'+err.message));
 </script></body></html>
