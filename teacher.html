@@ -65,4 +65,10 @@ $('#revealAll').onclick=async()=>{
  }catch(e){alert(e.message)}
 };
 if(dbReady){$('#offline').classList.add('hidden');$('#login').classList.remove('hidden');firebase.auth().onAuthStateChanged(user=>{$('#signOut').classList.toggle('hidden',!user);msg(user?'已登入：'+user.email:'尚未登入')});$('#signIn').onclick=async()=>{try{await firebase.auth().signInWithEmailAndPassword($('#email').value,$('#password').value);restore()}catch(e){alert(e.message)}};$('#signOut').onclick=()=>firebase.auth().signOut();}
+
+ firebase.database().ref('live/questionOverrides').on('value',snap=>{
+ const overrides=snap.val()||{};
+ window.PHOTOS.forEach(p=>{if(!p.originalSrc)p.originalSrc=p.src;p.src=overrides[p.id]||p.originalSrc;});
+ photoCards(true);if(window.afterCardsRendered)window.afterCardsRendered();
+ },err=>console.warn('題目照片替換尚未啟用：'+err.message));
 </script></body></html>
